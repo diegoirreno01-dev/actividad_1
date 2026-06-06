@@ -1,0 +1,7 @@
+"0","data_limpia <- data_limpia[!duplicated(data_limpia), ]"
+"0",""
+"0","print(paste(""Registros después de eliminar duplicados:"", nrow(data_limpia)))"
+"1","[1]"
+"1"," ""Registros después de eliminar duplicados: 54042"""
+"1","
+"

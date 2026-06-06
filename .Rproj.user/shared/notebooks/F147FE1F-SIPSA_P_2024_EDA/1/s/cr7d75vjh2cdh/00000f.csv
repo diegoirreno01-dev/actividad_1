@@ -1,0 +1,6 @@
+"0","library(readr)      # lectura de archivos CSV"
+"0","library(dplyr)      # manipulación de datos"
+"0","library(ggplot2)    # visualizaciones"
+"0","library(stringr)    # manipulación de texto"
+"0","library(tidyr)      # transformación de datos"
+"0","library(knitr)      # tablas en RMarkdown"

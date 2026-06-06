@@ -1,0 +1,7 @@
+"0","data_raw <- read.csv("
+"0","  ""C:\\Users\\MSI\\Desktop\\Ejercicio clase 2\\datos\\mensual 24.csv"","
+"0","  sep = "";"","
+"0","  fileEncoding = ""UTF-8-BOM"","
+"0","  stringsAsFactors = FALSE,"
+"0","  check.names = FALSE"
+"0",")"

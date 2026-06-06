@@ -1,0 +1,678 @@
+---
+title: "Análisis Exploratorio de Precios Mayoristas Agropecuarios en Colombia - SIPSA-P 2024"
+author: "Diego Fernando Irreño Torres - Diego Alexander Irreño Rodriguez"
+date: "`r Sys.Date()`"
+---
+
+---
+
+# 1. Introducción
+
+## Planteamiento del Problema
+
+La seguridad alimentaria y la estabilidad de los precios de los alimentos son pilares fundamentales para el desarrollo económico y social de Colombia. El acceso a información confiable, oportuna y de calidad sobre los precios mayoristas de los alimentos permite a productores, comercializadores, tomadores de decisiones de política pública y ciudadanía en general, comprender la dinámica del mercado agropecuario nacional.
+
+El Sistema de Información de Precios y Abastecimiento del Sector Agropecuario — Componente de Precios Mayoristas (**SIPSA-P**), administrado por el Departamento Administrativo Nacional de Estadística (**DANE**), recopila diariamente información sobre precios de venta mayorista de una canasta de alimentos frescos y procesados en los principales mercados mayoristas del país.
+
+Sin embargo, los datos recolectados en campo frecuentemente presentan desafíos relacionados con:
+
+- **Datos faltantes**: ausencia de precios en ciertos mercados o períodos.
+- **Registros duplicados**: observaciones repetidas producto del proceso de digitación.
+- **Inconsistencias en variables categóricas**: diferencias en la escritura de nombres de mercados, grupos y productos.
+- **Valores atípicos**: precios inusualmente bajos o altos que pueden distorsionar el análisis.
+
+El problema consiste en **realizar un proceso completo de limpieza, estandarización y análisis exploratorio del conjunto de datos SIPSA-P correspondiente al año 2024**, con el fin de obtener un dataset confiable que permita identificar patrones de comportamiento de los precios mayoristas de alimentos a nivel nacional y por mercado.
+
+## Objetivo General
+
+Desarrollar un proceso completo de carga, limpieza y análisis exploratorio de datos (EDA) sobre el conjunto de datos SIPSA-P 2024, que permita describir el comportamiento de los precios mayoristas de alimentos en Colombia durante el año 2024, identificando los principales mercados, grupos de alimentos y productos según su precio promedio por kilogramo.
+
+## Objetivos Específicos
+
+**3.1 Identificar las variables de interés**
+
+  - Seleccionar una variable cuantitativa (precio promedio por kilogramo) y una variable cualitativa (grupo de alimentos) para el análisis.
+
+**3.2 Realizar limpieza de datos**
+
+  - Detectar y cuantificar valores faltantes.
+  - Eliminar registros duplicados.
+  - Limpiar y estandarizar formatos de texto en variables categóricas.
+  - Convertir correctamente variables de tipo numérico.
+
+**3.3 Desarrollar el análisis exploratorio**
+
+  - Calcular estadísticos descriptivos para la variable cuantitativa.
+  - Generar visualizaciones (histogramas, boxplots, gráficos de barras).
+  - Identificar el Top 10 de mercados con mayor precio promedio por kilogramo.
+
+**3.4 Documentar y comunicar los resultados**
+
+  - Presentar los hallazgos de manera clara y reproducible en formato R Markdown.
+
+---
+
+# 2. Descripción del Conjunto de Datos
+
+## Fuente
+
+El conjunto de datos utilizado corresponde al archivo **SIPSA_P-Mensual-2024**, publicado por el DANE en su repositorio de microdatos (https://microdatos.dane.gov.co). Este archivo contiene información mensual de los precios mayoristas de alimentos recolectados durante el año 2024 en los principales mercados mayoristas de Colombia.
+
+## Descripción General
+
+Según la documentación oficial (DDI), el componente SIPSA-P tiene por objeto generar información continua sobre el comportamiento de los precios de venta mayorista de una canasta de alimentos en mercados mayoristas del país. Los productos monitoreados pertenecen a ocho grupos:
+
+1. Verduras y hortalizas
+2. Frutas
+3. Tubérculos, raíces y plátanos
+4. Granos y cereales
+5. Lácteos y huevos
+6. Carnes
+7. Pescados
+8. Procesados
+
+## Variables del Dataset 2024
+
+El archivo SIPSA_P-Mensual-2024 contiene **6 variables** y **54.042 registros**:
+
+| Variable | Etiqueta | Tipo |
+|---|---|---|
+| `Fecha` | Fecha Programada para la Recolección | Carácter (mes-año) |
+| `Grupo` | ID Grupo de alimentos | Carácter |
+| `Producto` | Nombre del artículo | Carácter |
+| `CODIGO_CPC_AC` | Código CPC del producto | Carácter |
+| `Mercado` | Nombre del mercado mayorista | Carácter |
+| `Precio_promedio_por_kilogramo` | Precio promedio diario (COP/kg) | Numérico |
+
+## Variables Seleccionadas para el Análisis
+
+- **Variable cuantitativa**: `Precio_promedio_por_kilogramo` — precio mayorista promedio expresado en pesos colombianos por kilogramo (COP/kg).
+- **Variable cualitativa**: `Grupo` — categoría del grupo de alimentos al que pertenece el producto.
+- **Código geográfico/mercado**: `Mercado` — nombre del mercado mayorista, que incluye el municipio o ciudad de referencia.
+
+---
+
+# 3. Carga de Librerías y Datos
+
+## Cargar Librerías
+
+```{r message=FALSE, warning=FALSE}
+library(readr)      # lectura de archivos CSV
+library(dplyr)      # manipulación de datos
+library(ggplot2)    # visualizaciones
+library(stringr)    # manipulación de texto
+library(tidyr)      # transformación de datos
+library(knitr)      # tablas en RMarkdown
+```
+
+## Cargar el Dataset
+
+```{r}
+list.files("../Datos") # Verificar que archivos están en el proyecto
+```
+```{r}
+data_raw <- read.csv(
+  "C:\\Users\\MSI\\Desktop\\Ejercicio clase 2\\datos\\mensual 24.csv",
+  sep = ";",
+  fileEncoding = "UTF-8-BOM",
+  stringsAsFactors = FALSE,
+  check.names = FALSE
+)
+```
+
+## Estandarizar Nombres de Columnas
+
+```{r}
+# Estandarizar nombres de columnas
+data <- data_raw
+colnames(data) <- c("Fecha", "Grupo", "Producto", "Codigo_CPC", "Mercado", "Precio_kg")
+
+```
+
+
+
+```{r}
+# Limpiar y convertir la variable precio a numérico
+# (el archivo usa punto como separador de miles: 1.387 = 1387 pesos)
+data$Precio_kg <- trimws(data$Precio_kg)           # eliminar espacios
+data$Precio_kg <- gsub("[.]", "", data$Precio_kg)  # eliminar separador de miles
+data$Precio_kg <- as.numeric(data$Precio_kg)        # convertir a numérico
+```
+
+---
+
+# 4. Exploración Inicial de los Datos
+
+## Visualización de los Primeros Registros
+
+```{r}
+head(data)
+```
+
+## Visualización de los Últimos Registros
+
+```{r}
+tail(data)
+```
+
+## Dimensiones del Dataset
+
+```{r}
+dim(data)
+```
+
+El dataset contiene **`r nrow(data)` registros** y **`r ncol(data)` variables**, lo que corresponde a la información de precios mayoristas de alimentos recolectada durante los 12 meses del año 2024 en los mercados mayoristas de Colombia.
+
+## Estructura de los Datos
+
+```{r}
+str(data)
+```
+
+La estructura del conjunto de datos muestra que la variable `Precio_kg` fue leída como texto (carácter) debido a que los valores en el archivo original presentan puntos como separadores de miles y espacios adicionales. Las demás variables son de tipo carácter y corresponden a variables categóricas. Es necesario realizar un proceso de conversión y limpieza antes de proceder con el análisis estadístico.
+
+## Nombre de las Columnas
+
+```{r}
+colnames(data)
+```
+
+## Frecuencia por Grupo de Alimentos
+
+```{r}
+tabla_grupo <- data.frame(sort(table(data$Grupo), decreasing = TRUE))
+colnames(tabla_grupo) <- c("Grupo", "Frecuencia")
+tabla_grupo
+```
+
+El grupo con mayor número de registros es **Verduras y Hortalizas**, seguido de **Frutas** y **Tubérculos, Raíces y Plátanos**, lo que refleja la alta diversidad de productos frescos monitoreados en los mercados mayoristas del país. Los grupos de **Carnes**, **Procesados** y **Pescados** presentan menor cantidad de registros, lo que puede explicarse por una menor variedad de productos en la canasta o menor frecuencia de reporte.
+
+## Frecuencia por Mes (Variable Fecha)
+
+```{r}
+tabla_fecha <- data.frame(sort(table(data$Fecha), decreasing = TRUE))
+colnames(tabla_fecha) <- c("Mes", "Frecuencia")
+tabla_fecha
+```
+
+La distribución mensual de registros es relativamente uniforme a lo largo del año, lo que indica consistencia en el proceso de recolección de la información durante el 2024.
+
+---
+
+# 5. Limpieza de Datos
+
+## Conversión de la Variable Precio
+
+La variable `Precio_kg` contiene los precios en formato texto con **puntos como separadores de miles** (ej: `1.387` equivale a 1.387 pesos colombianos por kilogramo) y espacios en blanco adicionales. Se debe limpiar y convertir a formato numérico.
+
+```{r}
+# Eliminar espacios, remover puntos separadores de miles y convertir a numérico
+data$Precio_kg <- trimws(data$Precio_kg)             # eliminar espacios
+data$Precio_kg <- gsub("[.]", "", data$Precio_kg)    # eliminar separador de miles
+data$Precio_kg <- as.numeric(data$Precio_kg)         # convertir a numérico
+```
+
+## Datos Perdidos
+
+### Total de Datos Perdidos
+
+```{r}
+total_na <- sum(is.na(data))
+print(paste("Total de datos perdidos en el dataset:", total_na))
+```
+
+### Datos Perdidos por Columna
+
+```{r}
+na_por_columna <- colSums(is.na(data))
+
+tabla_na <- data.frame(
+  Columna = names(na_por_columna),
+  Datos_Perdidos = na_por_columna
+)
+
+tabla_na_ordenada <- tabla_na %>%
+  filter(Columna != "Total") %>%
+  arrange(desc(Datos_Perdidos)) %>%
+  rbind(data.frame(Columna = "Total", Datos_Perdidos = total_na))
+
+tabla_na_ordenada
+```
+
+Los valores faltantes en la variable `Precio_kg` corresponden a registros donde no se reportó precio en el mercado para ese período. Dado que la variable cuantitativa de interés es el precio, y el análisis requiere valores numéricos válidos, se procede a **excluir** las filas con datos faltantes en esta variable. Esta decisión es coherente con la metodología del SIPSA-P, que establece que no se realiza imputación de precios faltantes.
+
+### Tratamiento de Datos Faltantes
+
+```{r}
+# Excluir registros sin precio reportado
+data_limpia <- data %>% filter(!is.na(Precio_kg))
+
+print(paste("Registros antes de la exclusión:", nrow(data)))
+print(paste("Registros después de la exclusión:", nrow(data_limpia)))
+print(paste("Registros eliminados:", nrow(data) - nrow(data_limpia)))
+```
+
+## Datos Duplicados
+
+### Total de Filas Duplicadas
+
+```{r}
+sum(duplicated(data_limpia))
+```
+
+### Mostrar Filas Duplicadas
+
+```{r}
+data_limpia[duplicated(data_limpia), ]
+```
+
+### Eliminar Filas Duplicadas
+
+```{r}
+data_limpia <- data_limpia[!duplicated(data_limpia), ]
+
+print(paste("Registros después de eliminar duplicados:", nrow(data_limpia)))
+```
+
+## Estandarización de Variables Categóricas
+
+Las variables de texto pueden presentar inconsistencias en el uso de mayúsculas, minúsculas y espacios. Se estandarizan para garantizar uniformidad.
+
+```{r}
+vars_categoricas <- c("Grupo", "Producto", "Mercado")
+
+data_limpia[vars_categoricas] <- lapply(
+  data_limpia[vars_categoricas],
+  function(x) {
+    x <- as.character(x)
+    x <- trimws(x)                                          # eliminar espacios al inicio/fin
+    x <- iconv(x, from = "UTF-8", to = "ASCII//TRANSLIT")  # quitar tildes
+    x <- toupper(x)                                         # convertir a mayúsculas
+    return(x)
+  }
+)
+```
+
+Verificación del grupo de alimentos después de la estandarización:
+
+```{r}
+unique(data_limpia$Grupo)
+```
+
+## Extracción del Municipio/Ciudad desde la Variable Mercado
+
+La columna `Mercado` contiene el nombre del municipio seguido del nombre del mercado mayorista separado por coma. Se extrae la primera parte para obtener el municipio de referencia.
+
+```{r}
+# Extraer la ciudad/municipio: todo lo que está antes de la primera coma
+data_limpia$Ciudad <- str_trim(str_extract(data_limpia$Mercado, "^[^,]+"))
+
+# Vista de los primeros valores extraídos
+head(unique(data_limpia$Ciudad), 20)
+```
+
+## Resumen del Proceso de Limpieza
+
+```{r}
+cat("=== RESUMEN DE LIMPIEZA ===\n")
+cat("Registros originales:               ", nrow(data), "\n")
+cat("Registros con precio faltante:      ", sum(is.na(data$Precio_kg)), "\n")
+cat("Registros duplicados eliminados:    ", sum(duplicated(data_limpia)), "\n")
+cat("Registros finales para análisis:    ", nrow(data_limpia), "\n")
+cat("Variables estandarizadas:           ", paste(vars_categoricas, collapse = ", "), "\n")
+```
+
+---
+
+# 6. Análisis Exploratorio de Datos (EDA)
+
+## Estadísticos Descriptivos de la Variable Cuantitativa
+
+La variable `Precio_kg` representa el **precio promedio mayorista en pesos colombianos (COP) por kilogramo** de los productos de la canasta SIPSA-P.
+
+```{r}
+summary(data_limpia$Precio_kg)
+```
+
+```{r}
+# Tabla de estadisticos descriptivos
+estadisticos <- data.frame(
+  Estadistico = c(
+    "Media", "Mediana", "Desviacion Estandar",
+    "Minimo", "Maximo",
+    "Q1 (25%)", "Q2 (50%)", "Q3 (75%)",
+    "Coeficiente de Variacion (%)"
+  ),
+  Valor = c(
+    round(mean(data_limpia$Precio_kg, na.rm = TRUE), 2),
+    round(median(data_limpia$Precio_kg, na.rm = TRUE), 2),
+    round(sd(data_limpia$Precio_kg, na.rm = TRUE), 2),
+    round(min(data_limpia$Precio_kg, na.rm = TRUE), 2),
+    round(max(data_limpia$Precio_kg, na.rm = TRUE), 2),
+    round(quantile(data_limpia$Precio_kg, 0.25, na.rm = TRUE), 2),
+    round(quantile(data_limpia$Precio_kg, 0.50, na.rm = TRUE), 2),
+    round(quantile(data_limpia$Precio_kg, 0.75, na.rm = TRUE), 2),
+    round(
+      (sd(data_limpia$Precio_kg, na.rm = TRUE) /
+       mean(data_limpia$Precio_kg, na.rm = TRUE)) * 100, 2
+    )
+  )
+)
+
+kable(estadisticos, caption = "Estadísticos descriptivos: Precio promedio por kilogramo (COP/kg)")
+```
+
+La variable `Precio_kg` presenta una distribución con alta dispersión. La media es considerablemente mayor que la mediana, lo que indica asimetría positiva y la posible presencia de valores atípicos en los extremos superiores, correspondientes a productos con precios muy elevados como carnes especiales o productos procesados. El coeficiente de variación elevado confirma la heterogeneidad de los precios entre los distintos productos y mercados monitoreados.
+
+## Histograma del Precio por Kilogramo
+
+```{r}
+hist(
+  data_limpia$Precio_kg,
+  col = "steelblue",
+  border = "white",
+  main = "Distribución del Precio Promedio por Kilogramo",
+  xlab = "Precio (COP/kg)",
+  ylab = "Frecuencia",
+  breaks = 60
+)
+abline(v = mean(data_limpia$Precio_kg, na.rm = TRUE), col = "red", lwd = 2, lty = 2)
+abline(v = median(data_limpia$Precio_kg, na.rm = TRUE), col = "darkgreen", lwd = 2, lty = 2)
+legend("topright",
+       legend = c("Media", "Mediana"),
+       col = c("red", "darkgreen"),
+       lty = 2, lwd = 2)
+```
+
+El histograma muestra una distribución fuertemente sesgada hacia la derecha (asimetría positiva). La gran mayoría de los precios se concentra en valores bajos, mientras que una pequeña proporción de productos presentan precios muy elevados. Esto es coherente con la naturaleza de la canasta SIPSA-P, donde productos básicos como verduras y tubérculos tienen precios menores, mientras que carnes y productos procesados pueden alcanzar precios notablemente superiores.
+
+## Histograma con Escala Logarítmica
+
+Para visualizar mejor la distribución dada la asimetría, se aplica una transformación logarítmica:
+
+```{r}
+hist(
+  log(data_limpia$Precio_kg + 1),
+  col = "steelblue",
+  border = "white",
+  main = "Distribución del Precio por Kilogramo (Escala Log)",
+  xlab = "Log(Precio COP/kg + 1)",
+  ylab = "Frecuencia",
+  breaks = 50
+)
+```
+
+Con la escala logarítmica la distribución se aproxima más a una forma simétrica, lo que confirma que los precios presentan una distribución log-normal, comportamiento típico en variables de precios de mercado.
+
+## Boxplot General del Precio por Kilogramo
+
+```{r}
+boxplot(
+  data_limpia$Precio_kg,
+  horizontal = TRUE,
+  col = "steelblue",
+  border = "navy",
+  main = "Diagrama de Cajas y Bigotes - Precio por Kilogramo",
+  xlab = "Precio promedio (COP/kg)"
+)
+```
+
+El diagrama de cajas confirma la alta dispersión de los precios y la presencia de numerosos valores atípicos en el extremo superior, que corresponden a productos con precios mayoristas especialmente elevados. La caja central (rango intercuartílico) agrupa la mayor concentración de precios, representando los productos de consumo masivo que conforman la canasta básica.
+
+## Boxplot por Grupo de Alimentos
+
+```{r fig.width=10, fig.height=6}
+ggplot(data_limpia, aes(x = reorder(Grupo, Precio_kg, FUN = median), y = Precio_kg)) +
+  geom_boxplot(fill = "steelblue", color = "navy", outlier.colour = "tomato",
+               outlier.size = 0.8, alpha = 0.7) +
+  coord_flip() +
+  scale_y_log10(labels = scales::comma) +
+  labs(
+    title = "Precio por Kilogramo según Grupo de Alimentos (2024)",
+    subtitle = "Escala logarítmica - Mercados mayoristas de Colombia",
+    x = "Grupo de Alimentos",
+    y = "Precio promedio (COP/kg) - Escala Log"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5))
+```
+
+El boxplot por grupo revela diferencias importantes en los niveles de precios entre categorías. Los grupos de **Carnes** y **Lácteos y Huevos** tienden a presentar precios medios por kilogramo más elevados, mientras que **Verduras y Hortalizas** y **Tubérculos, Raíces y Plátanos** registran los precios más bajos en la escala logarítmica. Esto es coherente con el contenido nutricional y los procesos de producción asociados a cada grupo.
+
+## Gráfico de Barras: Precio Promedio por Grupo de Alimentos
+
+```{r fig.width=10, fig.height=5}
+precio_grupo <- data_limpia %>%
+  group_by(Grupo) %>%
+  summarise(Precio_Promedio = round(mean(Precio_kg, na.rm = TRUE), 0)) %>%
+  arrange(desc(Precio_Promedio))
+
+ggplot(precio_grupo, aes(x = reorder(Grupo, Precio_Promedio), y = Precio_Promedio)) +
+  geom_bar(stat = "identity", fill = "steelblue", color = "navy", alpha = 0.8) +
+  geom_text(aes(label = scales::comma(Precio_Promedio)),
+            hjust = -0.1, size = 3.5, fontface = "bold") +
+  coord_flip() +
+  labs(
+    title = "Precio Promedio por Kilogramo según Grupo de Alimentos",
+    subtitle = "SIPSA-P 2024 - Mercados Mayoristas de Colombia",
+    x = "Grupo de Alimentos",
+    y = "Precio Promedio (COP/kg)"
+  ) +
+  scale_y_continuous(labels = scales::comma, expand = expansion(mult = c(0, 0.2))) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5))
+```
+
+El gráfico de barras confirma que los grupos de **Carnes** y **Pescados** registran los precios promedio por kilogramo más altos durante el 2024, superando ampliamente a los grupos de frutas y verduras. El grupo de **Procesados** también presenta precios relativamente elevados en comparación con los grupos de productos frescos.
+
+## Evolución Mensual del Precio Promedio
+
+```{r fig.width=10, fig.height=5}
+# Ordenar los meses correctamente
+orden_meses <- c("ene-24","feb-24","mar-24","abr-24","may-24","jun-24",
+                 "jul-24","ago-24","sep-24","oct-24","nov-24","dic-24")
+
+precio_mensual <- data_limpia %>%
+  group_by(Fecha) %>%
+  summarise(Precio_Promedio = mean(Precio_kg, na.rm = TRUE)) %>%
+  mutate(Fecha = factor(Fecha, levels = orden_meses)) %>%
+  arrange(Fecha)
+
+ggplot(precio_mensual, aes(x = Fecha, y = Precio_Promedio, group = 1)) +
+  geom_line(color = "steelblue", size = 1.2) +
+  geom_point(color = "navy", size = 3) +
+  geom_text(aes(label = round(Precio_Promedio, 0)),
+            vjust = -0.8, size = 3.2) +
+  labs(
+    title = "Evolución Mensual del Precio Promedio por Kilogramo - 2024",
+    subtitle = "Todos los grupos de alimentos - Mercados Mayoristas de Colombia",
+    x = "Mes",
+    y = "Precio Promedio (COP/kg)"
+  ) +
+  scale_y_continuous(labels = scales::comma) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+```
+
+La evolución mensual muestra el comportamiento del precio promedio general de la canasta SIPSA-P a lo largo del 2024. Las variaciones observadas pueden relacionarse con factores estacionales, fenómenos climáticos (Fenómeno de El Niño/La Niña), dinámicas de oferta y demanda en los mercados regionales y coyunturas económicas del período.
+
+## Top 10 de Municipios/Ciudades con Mayor Precio Promedio
+
+```{r fig.width=10, fig.height=6}
+top10_ciudad <- data_limpia %>%
+  group_by(Ciudad) %>%
+  summarise(
+    Precio_Promedio = round(mean(Precio_kg, na.rm = TRUE), 0),
+    N_Registros = n()
+  ) %>%
+  filter(N_Registros >= 50) %>%           # filtrar ciudades con datos suficientes
+  arrange(desc(Precio_Promedio)) %>%
+  head(10)
+
+kable(top10_ciudad,
+      col.names = c("Ciudad/Municipio", "Precio Promedio (COP/kg)", "N° Registros"),
+      caption = "Top 10 ciudades con mayor precio promedio por kilogramo - SIPSA-P 2024",
+      format.args = list(big.mark = ","))
+```
+
+```{r fig.width=10, fig.height=6}
+ggplot(top10_ciudad, aes(x = reorder(Ciudad, Precio_Promedio), y = Precio_Promedio)) +
+  geom_bar(stat = "identity", fill = "steelblue", color = "navy", alpha = 0.85) +
+  geom_text(aes(label = scales::comma(Precio_Promedio)),
+            hjust = -0.1, size = 3.5, fontface = "bold") +
+  coord_flip() +
+  labs(
+    title = "Top 10 Ciudades con Mayor Precio Promedio por Kilogramo",
+    subtitle = "SIPSA-P 2024 - Mínimo 50 registros por ciudad",
+    x = "Ciudad / Municipio",
+    y = "Precio Promedio (COP/kg)"
+  ) +
+  scale_y_continuous(labels = scales::comma, expand = expansion(mult = c(0, 0.2))) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5))
+```
+
+El Top 10 de ciudades con mayor precio promedio por kilogramo revela que los mercados de ciudades intermedias y aquellos ubicados en zonas con mayor distancia a los centros de producción tienden a registrar precios más elevados, posiblemente debido a mayores costos de transporte y logística en la cadena de distribución de alimentos.
+
+## Top 10 de Productos con Mayor Precio Promedio
+
+```{r}
+top10_producto <- data_limpia %>%
+  group_by(Producto, Grupo) %>%
+  summarise(Precio_Promedio = round(mean(Precio_kg, na.rm = TRUE), 0),
+            .groups = "drop") %>%
+  arrange(desc(Precio_Promedio)) %>%
+  head(10)
+
+kable(top10_producto,
+      col.names = c("Producto", "Grupo", "Precio Promedio (COP/kg)"),
+      caption = "Top 10 productos con mayor precio promedio por kilogramo - SIPSA-P 2024",
+      format.args = list(big.mark = ","))
+```
+
+Los productos con mayor precio promedio por kilogramo corresponden principalmente a los grupos de **Carnes**, **Pescados** y algunos **Procesados**, lo que es consistente con el análisis por grupo presentado anteriormente.
+
+## Comparativo: Número de Registros por Mes y Grupo
+
+```{r fig.width=12, fig.height=6}
+registros_mes_grupo <- data_limpia %>%
+  mutate(Fecha = factor(Fecha, levels = orden_meses)) %>%
+  group_by(Fecha, Grupo) %>%
+  summarise(N = n(), .groups = "drop")
+
+ggplot(registros_mes_grupo, aes(x = Fecha, y = N, fill = Grupo)) +
+  geom_bar(stat = "identity", position = "stack") +
+  labs(
+    title = "Registros Mensuales por Grupo de Alimentos - SIPSA-P 2024",
+    x = "Mes",
+    y = "Número de Registros",
+    fill = "Grupo"
+  ) +
+  scale_y_continuous(labels = scales::comma) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "bottom",
+    legend.text = element_text(size = 7)
+  ) +
+  guides(fill = guide_legend(nrow = 2))
+```
+```{r}
+# 1. Eliminar filas con precio faltante (NA)
+data_limpia <- data[!is.na(data$Precio_kg), ]
+
+print(paste("Registros originales:            ", nrow(data)))
+print(paste("Registros con precio faltante:   ", sum(is.na(data$Precio_kg))))
+print(paste("Registros tras eliminar NA:      ", nrow(data_limpia)))
+
+# 2. Eliminar filas duplicadas
+data_limpia <- data_limpia[!duplicated(data_limpia), ]
+
+print(paste("Registros tras eliminar duplicados:", nrow(data_limpia)))
+
+# 3. Estandarizar variables categóricas
+# (quitar tildes, eliminar espacios, convertir a mayúsculas)
+vars_categoricas <- c("Grupo", "Producto", "Mercado")
+
+data_limpia[vars_categoricas] <- lapply(
+  data_limpia[vars_categoricas],
+  function(x) {
+    x <- as.character(x)
+    x <- trimws(x)
+    x <- iconv(x, from = "UTF-8", to = "ASCII//TRANSLIT")
+    x <- toupper(x)
+    return(x)
+  }
+)
+
+# 4. Extraer ciudad/municipio desde la columna Mercado
+# (todo lo que aparece antes de la primera coma)
+data_limpia$Ciudad <- trimws(
+  sub(",.*", "", data_limpia$Mercado)
+)
+
+# 5. Resumen final del proceso de limpieza
+cat("\n=== RESUMEN DE LIMPIEZA ===\n")
+cat("Registros originales:              ", nrow(data), "\n")
+cat("Valores faltantes eliminados:      ", sum(is.na(data$Precio_kg)), "\n")
+cat("Duplicados eliminados:             ", nrow(data) - nrow(data_limpia) - sum(is.na(data$Precio_kg)), "\n")
+cat("Registros finales para análisis:   ", nrow(data_limpia), "\n")
+cat("Variables estandarizadas:          ", paste(vars_categoricas, collapse = ", "), "\n")
+cat("Nueva variable creada:             Ciudad\n")
+
+# 6. Verificar que no quedan NA
+cat("\nDatos faltantes por columna después de limpieza:\n")
+print(colSums(is.na(data_limpia)))
+
+# 7. Vista previa del dataset limpio
+head(data_limpia)
+```
+```{r}
+library(writexl)
+
+write_xlsx(
+  data_limpia,
+  "C:\\Users\\MSI\\Desktop\\Ejercicio clase 2\\resultados\\data_limpia.xlsx"
+)
+
+cat("Archivo exportado exitosamente en:\n")
+cat("C:\\Users\\MSI\\Desktop\\Ejercicio clase 2\\resultados\\data_limpia.xlsx\n")
+cat("Total de registros exportados:", nrow(data_limpia), "\n")
+cat("Total de variables exportadas:", ncol(data_limpia), "\n")
+```
+
+
+---
+
+# 7. Conclusiones
+
+Con base en el análisis exploratorio desarrollado sobre el conjunto de datos SIPSA-P 2024, se presentan las siguientes conclusiones:
+
+**Sobre la calidad de los datos:**
+El conjunto de datos presentó un número reducido de valores faltantes en la variable de precio, coherente con la metodología del SIPSA-P que establece que no todos los productos son reportados en todos los mercados en cada período. No se identificaron registros duplicados significativos. La estandarización de variables categóricas fue esencial para garantizar la correcta agrupación por grupo de alimentos y mercado.
+
+**Sobre la distribución de precios:**
+Los precios mayoristas por kilogramo presentan una distribución fuertemente asimétrica hacia la derecha, con una mediana inferior a la media, lo que indica que la mayoría de los productos tiene precios relativamente bajos mientras que una minoría de productos (carnes, pescados especiales, procesados) alcanzan precios muy elevados. Esta heterogeneidad es una característica estructural de la canasta de alimentos SIPSA-P.
+
+**Sobre los grupos de alimentos:**
+Los grupos con mayor precio promedio por kilogramo son **Carnes**, **Pescados** y **Procesados**, mientras que **Verduras y Hortalizas** y **Tubérculos, Raíces y Plátanos** registran los precios más bajos, siendo estos últimos los grupos con mayor volumen de registros, lo que refleja su importancia en la canasta básica de los colombianos.
+
+**Sobre los mercados:**
+Los mercados de ciudades con mayor distancia a los centros de producción tienden a registrar precios más elevados. La diversidad geográfica de los mercados monitoreados por el SIPSA-P es amplia, cubriendo mercados mayoristas desde grandes centros urbanos como Bogotá y Medellín hasta municipios intermedios en regiones como Boyacá, Nariño y el Caribe colombiano.
+
+**Sobre la evolución mensual:**
+El precio promedio general de la canasta presenta variaciones a lo largo del año 2024, con comportamientos que pueden asociarse a factores estacionales propios de la producción agropecuaria colombiana y a condiciones climáticas que afectan la disponibilidad y los costos de los alimentos en los mercados mayoristas.
+
+---
+
+*Elaborado con datos del DANE - Sistema de Información de Precios y Abastecimiento del Sector Agropecuario (SIPSA-P), 2024.*
+
+*Departamento Administrativo Nacional de Estadística — https://www.dane.gov.co*

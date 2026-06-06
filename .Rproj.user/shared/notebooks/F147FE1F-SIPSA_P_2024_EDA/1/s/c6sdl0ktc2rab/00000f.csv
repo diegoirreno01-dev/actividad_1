@@ -1,0 +1,5 @@
+"0","# Limpiar y convertir la variable precio a numérico"
+"0","# (el archivo usa punto como separador de miles: 1.387 = 1387 pesos)"
+"0","data$Precio_kg <- trimws(data$Precio_kg)           # eliminar espacios"
+"0","data$Precio_kg <- gsub(""[.]"", """", data$Precio_kg)  # eliminar separador de miles"
+"0","data$Precio_kg <- as.numeric(data$Precio_kg)        # convertir a numérico"

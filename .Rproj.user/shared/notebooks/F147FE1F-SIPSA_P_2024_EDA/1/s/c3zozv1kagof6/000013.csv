@@ -1,0 +1,1 @@
+"0","abline(v = median(data_limpia$Precio_kg, na.rm = TRUE), col = ""darkgreen"", lwd = 2, lty = 2)"

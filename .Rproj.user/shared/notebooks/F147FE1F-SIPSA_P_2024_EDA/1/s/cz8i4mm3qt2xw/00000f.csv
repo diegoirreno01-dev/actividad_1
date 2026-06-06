@@ -1,0 +1,8 @@
+"0","boxplot("
+"0","  data_limpia$Precio_kg,"
+"0","  horizontal = TRUE,"
+"0","  col = ""steelblue"","
+"0","  border = ""navy"","
+"0","  main = ""Diagrama de Cajas y Bigotes - Precio por Kilogramo"","
+"0","  xlab = ""Precio promedio (COP/kg)"""
+"0",")"

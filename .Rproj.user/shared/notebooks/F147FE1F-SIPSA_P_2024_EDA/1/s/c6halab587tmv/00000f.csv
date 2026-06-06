@@ -1,0 +1,4 @@
+"0","# Eliminar espacios, remover puntos separadores de miles y convertir a numérico"
+"0","data$Precio_kg <- trimws(data$Precio_kg)             # eliminar espacios"
+"0","data$Precio_kg <- gsub(""[.]"", """", data$Precio_kg)    # eliminar separador de miles"
+"0","data$Precio_kg <- as.numeric(data$Precio_kg)         # convertir a numérico"

@@ -1,0 +1,4 @@
+"0","# Estandarizar nombres de columnas"
+"0","data <- data_raw"
+"0","colnames(data) <- c(""Fecha"", ""Grupo"", ""Producto"", ""Codigo_CPC"", ""Mercado"", ""Precio_kg"")"
+"0",""
